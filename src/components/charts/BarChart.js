@@ -1,12 +1,21 @@
 import React, { memo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as Highcharts from 'highcharts';
 import _ from 'lodash';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 var counter = 0;
 
 function count() {
   return counter++;
+}
+
+function weekOfCompare(dateInWeek, date) {
+  let startOfWeek = moment(dateInWeek).startOf('week').toDate();
+  let endOfWeek = moment(dateInWeek).endOf('week').toDate();
+
+  // console.log('start', startOfWeek, 'end', endOfWeek)
+
+  return moment(date).isBetween(startOfWeek, endOfWeek);
 }
 
 function BarChart({ data, date }) {
@@ -19,8 +28,24 @@ function BarChart({ data, date }) {
     console.log('useLayoutEffect', date);
     let selectedDay = date ?? moment().subtract(7, 'days');
     // let stats = data.filter((d) => moment(d.date).isAfter(moment().subtract('days', 15)));
-    let stats = data.filter((d) => d.state && moment(d.date).isSame(selectedDay, 'day'));
+    // let stats = data.filter((d) => d.state && moment(d.date).isSame(selectedDay, 'day'));
+    let stats = data.filter((d) => d.state && weekOfCompare(selectedDay, d.date));
     let states = stats
+      .reduce((memo, d) => {
+        let key = `${d.state}:${moment(d.date).startOf('week').format('YYYY-MM-DD')}`;
+
+        let index = _.find(memo, { key });
+        if (!index) {
+          d.key = key;
+          index = d;
+          memo.push(d);
+        } else {
+          index.deaths += d.deaths;
+          index.cases += d.cases;
+        }
+
+        return memo;
+      }, [])
       .map((d) => {
         let { population, deaths, cases } = d;
         population = +population;
