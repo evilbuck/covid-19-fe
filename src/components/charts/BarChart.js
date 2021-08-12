@@ -2,6 +2,7 @@ import React, { memo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as Highcharts from 'highcharts';
 import _ from 'lodash';
 import moment from 'moment-timezone';
+import * as math from 'mathjs';
 
 var counter = 0;
 
@@ -32,31 +33,47 @@ function BarChart({ data, date }) {
     let stats = data.filter((d) => d.state && weekOfCompare(selectedDay, d.date));
     let states = stats
       .reduce((memo, d) => {
-        let key = `${d.state}:${moment(d.date).startOf('week').format('YYYY-MM-DD')}`;
+        let key = `${d.state}:${moment(d.date).startOf('month').format('YYYY-MM-DD')}`;
 
         let index = _.find(memo, { key });
         if (!index) {
           d.key = key;
-          index = d;
-          memo.push(d);
+          memo.push({
+            ...d,
+            deaths: parseInt(d.deaths),
+            cases: parseInt(d.cases),
+            population: math.isNumeric(d.population) ? parseInt(d.population) : 0,
+          });
         } else {
-          index.deaths += d.deaths;
-          index.cases += d.cases;
+          if (index.deaths === '100540-3' || index.population === '100540-3') {
+            debugger;
+          }
+          index.deaths = parseInt(index.deaths) + parseInt(d.deaths);
+          index.cases = parseInt(index.cases) + parseInt(d.cases);
+          index.population = parseInt(index.population) + parseInt(d.population);
+          if (index.deaths === '100540-3' || index.population === '100540-3') {
+            debugger;
+          }
         }
 
         return memo;
       }, [])
       .map((d) => {
         let { population, deaths, cases } = d;
-        population = +population;
-        deaths = +deaths;
-        cases = +cases;
-        let death_ratio = deaths / population;
-        let case_ratio = cases / population;
+        // population = +population;
+        // deaths = +deaths;
+        // cases = +cases;
+        if (deaths === '100540-3' || population === '100540-3') {
+          debugger;
+        }
+
+        let death_ratio = math.divide(deaths, population);
+        let case_ratio = math.divide(cases, population);
 
         return { ...d, population: +population, cases, deaths, death_ratio, case_ratio };
       })
-      .sort((a, b) => b.death_ratio - a.death_ratio);
+      .sort((a, b) => math.compare(b.death_ratio, a.death_ratio));
+    // .sort((a, b) => b.death_ratio - a.death_ratio);
 
     // get the top ten states by death
     let chart = Highcharts.chart(chartContainer.current, {
