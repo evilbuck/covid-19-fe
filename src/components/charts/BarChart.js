@@ -1,35 +1,37 @@
-import React, { memo, useEffect, useRef } from 'react';
+import React, { memo, useEffect, useLayoutEffect, useRef } from 'react';
 import * as Highcharts from 'highcharts';
 import _ from 'lodash';
 import moment from 'moment';
 
-export default function BarChart({ data, demographics }) {
-  console.log('BarChart', data);
-  const chartContainer = useRef(null);
+var counter = 0;
 
-  useEffect(() => {
-    if (_.isEmpty(demographics)) return;
+function count() {
+  return counter++;
+}
+
+function BarChart({ data, date }) {
+  const chartContainer = useRef(null);
+  console.log('BarChart render');
+
+  useLayoutEffect(() => {
     // filter out the date range we want
     // TODO: make date range dynamic
-    let selectedDay = moment().subtract(7, 'days');
+    console.log('useLayoutEffect', date);
+    let selectedDay = date ?? moment().subtract(7, 'days');
     // let stats = data.filter((d) => moment(d.date).isAfter(moment().subtract('days', 15)));
     let stats = data.filter((d) => d.state && moment(d.date).isSame(selectedDay, 'day'));
-    let states = stats.sort((a, b) => {
-      try {
-        let a_population = demographics.find((demo) => demo.state === a.state)?.population;
-        let b_population = demographics.find((demo) => demo.state === b.state)?.population;
-        let a_death_ratio = parseFloat(+a.deaths / +a_population);
-        let b_death_ratio = parseFloat(+b.deaths / +b_population);
-        let a_per_thousand = (a_death_ratio * a_population) / 100;
-        console.log('a per 1000', a_per_thousand);
-        console.log('a', a_population, a_death_ratio, a.deaths, a.state, '\n', demographics);
-        console.log(`${+b.deaths} / ${+b_population} * 100 = ${b_death_ratio}`);
+    let states = stats
+      .map((d) => {
+        let { population, deaths, cases } = d;
+        population = +population;
+        deaths = +deaths;
+        cases = +cases;
+        let death_ratio = deaths / population;
+        let case_ratio = cases / population;
 
-        return b_death_ratio - a_death_ratio;
-      } catch (error) {
-        console.error(error, a.state, b.state);
-      }
-    });
+        return { ...d, population: +population, cases, deaths, death_ratio, case_ratio };
+      })
+      .sort((a, b) => b.death_ratio - a.death_ratio);
 
     // get the top ten states by death
     let chart = Highcharts.chart(chartContainer.current, {
@@ -41,19 +43,21 @@ export default function BarChart({ data, demographics }) {
         {
           name: 'death % of population',
           data: states.map((d) => {
-            let population = parseFloat(demographics.find((demo) => demo.state === d.state).population);
-            return Math.round((+d.deaths / population) * 100);
+            return d.death_ratio;
           }),
         },
       ],
     });
-  }, [data, chartContainer.current, demographics]);
+  }, [data, chartContainer.current, date]);
 
   return (
     <div>
       <h2>Chart</h2>
 
-      <div id="counts-chart" style={{ width: '500px', height: '750px' }} ref={chartContainer}></div>
+      <div id="counts-chart" style={{ width: '500px', height: '950px' }} ref={chartContainer}></div>
     </div>
   );
 }
+
+// export default memo(BarChart, () => true);
+export default BarChart;
