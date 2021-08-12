@@ -4,32 +4,57 @@ import _ from 'lodash';
 import moment from 'moment-timezone';
 import * as math from 'mathjs';
 
-var counter = 0;
-
-function count() {
-  return counter++;
-}
-
 function weekOfCompare(dateInWeek, date) {
   let startOfWeek = moment(dateInWeek).startOf('week').toDate();
   let endOfWeek = moment(dateInWeek).endOf('week').toDate();
 
-  // console.log('start', startOfWeek, 'end', endOfWeek)
-
   return moment(date).isBetween(startOfWeek, endOfWeek);
 }
 
-function BarChart({ data, date }) {
+function dataMunger(d) {
+  let { population, deaths, cases } = d;
+
+  let death_ratio = math.divide(deaths, population);
+  let case_ratio = math.divide(cases, population);
+
+  return { ...d, population: +population, cases, deaths, death_ratio, case_ratio };
+}
+
+function deathMapper(d) {
+  return d.death_ratio;
+}
+function caseMapper(d) {
+  return d.case_ratio;
+}
+
+function caseSorter(a, b) {
+  return math.compare(b.case_ratio, a.case_ratio);
+}
+function deathSorter(a, b) {
+  return math.compare(b.death_ratio, a.death_ratio);
+}
+
+function BarChart({ data, date, metric }) {
   const chartContainer = useRef(null);
-  console.log('BarChart render');
+
+  let mapper, sorter;
+  switch (metric) {
+    case 'death':
+      mapper = deathMapper;
+      sorter = deathSorter;
+      break;
+    case 'case':
+      mapper = caseMapper;
+      sorter = caseSorter;
+      break;
+    default:
+      throw new Error('no metric provided');
+  }
 
   useLayoutEffect(() => {
     // filter out the date range we want
     // TODO: make date range dynamic
-    console.log('useLayoutEffect', date);
     let selectedDay = date ?? moment().subtract(7, 'days');
-    // let stats = data.filter((d) => moment(d.date).isAfter(moment().subtract('days', 15)));
-    // let stats = data.filter((d) => d.state && moment(d.date).isSame(selectedDay, 'day'));
     let stats = data.filter((d) => d.state && weekOfCompare(selectedDay, d.date));
     let states = stats
       .reduce((memo, d) => {
@@ -45,52 +70,31 @@ function BarChart({ data, date }) {
             population: math.isNumeric(d.population) ? parseInt(d.population) : 0,
           });
         } else {
-          if (index.deaths === '100540-3' || index.population === '100540-3') {
-            debugger;
-          }
           index.deaths = parseInt(index.deaths) + parseInt(d.deaths);
           index.cases = parseInt(index.cases) + parseInt(d.cases);
           index.population = parseInt(index.population) + parseInt(d.population);
-          if (index.deaths === '100540-3' || index.population === '100540-3') {
-            debugger;
-          }
         }
 
         return memo;
       }, [])
-      .map((d) => {
-        let { population, deaths, cases } = d;
-        // population = +population;
-        // deaths = +deaths;
-        // cases = +cases;
-        if (deaths === '100540-3' || population === '100540-3') {
-          debugger;
-        }
-
-        let death_ratio = math.divide(deaths, population);
-        let case_ratio = math.divide(cases, population);
-
-        return { ...d, population: +population, cases, deaths, death_ratio, case_ratio };
-      })
-      .sort((a, b) => math.compare(b.death_ratio, a.death_ratio));
-    // .sort((a, b) => b.death_ratio - a.death_ratio);
+      .map(dataMunger)
+      .sort(sorter);
+    // .sort((a, b) => math.compare(b.death_ratio, a.death_ratio));
 
     // get the top ten states by death
     let chart = Highcharts.chart(chartContainer.current, {
       chart: { type: 'bar' },
-      title: { text: 'most deaths by state' },
+      title: { text: `most ${metric} by state` },
       xAxis: { categories: states.map((d) => d.state) },
       yAxis: { title: 'death % of population' },
       series: [
         {
-          name: 'death % of population',
-          data: states.map((d) => {
-            return d.death_ratio;
-          }),
+          name: `${metric} % of population`,
+          data: states.map(mapper),
         },
       ],
     });
-  }, [data, chartContainer.current, date]);
+  }, [data, chartContainer.current, date, metric]);
 
   return (
     <div>

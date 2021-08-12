@@ -11,6 +11,7 @@ const client = axios.create({ baseURL: 'http://localhost:4000' });
 export default function DashboardPage() {
   const [chartData, setChartData] = useState([]);
   const [date, setDate] = useState(new Date());
+  const [metric, setMetric] = useState('death');
 
   useEffect(() => {
     (async () => {
@@ -31,11 +32,39 @@ export default function DashboardPage() {
             }}
             value={moment(date).format('YYYY-MM-DD')}
           />
+          <div>
+            <div style={{ display: 'inline-block' }}>
+              <label>Death</label>
+              <input
+                id="death-metric"
+                type="radio"
+                name="metric"
+                value="death"
+                onChange={({ target: { value } }) => {
+                  setMetric(value);
+                }}
+                checked={metric === 'death'}
+              />
+            </div>
+            <div style={{ display: 'inline-block' }}>
+              <label>Case</label>
+              <input
+                id="case-metric"
+                type="radio"
+                name="metric"
+                value="case"
+                onChange={({ target: { value } }) => {
+                  setMetric(value);
+                }}
+                checked={metric === 'case'}
+              />
+            </div>
+          </div>
         </div>
       </Formik>
       <div>
-        <h3>Deaths by state</h3>
-        {chartData && <BarChart data={chartData} date={moment(date).toDate()} />}
+        <h3>{metric}% by state</h3>
+        {chartData && <BarChart data={chartData} date={moment(date).toDate()} metric={metric} />}
       </div>
     </div>
   );
