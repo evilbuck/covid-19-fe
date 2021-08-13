@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { memo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import * as Highcharts from 'highcharts';
 import _ from 'lodash';
 import moment from 'moment-timezone';
@@ -36,6 +36,7 @@ function deathSorter(a, b) {
 
 function BarChart({ data, date, metric }) {
   const chartContainer = useRef(null);
+  const [chart, setChart] = useState(null);
 
   let mapper, sorter;
   switch (metric) {
@@ -82,27 +83,33 @@ function BarChart({ data, date, metric }) {
     // .sort((a, b) => math.compare(b.death_ratio, a.death_ratio));
 
     // get the top ten states by death
-    let chart = Highcharts.chart(chartContainer.current, {
-      chart: { type: 'bar' },
-      title: { text: `most ${metric} by state` },
-      xAxis: { categories: states.map((d) => d.state) },
-      yAxis: { title: 'death % of population' },
-      series: [
-        {
-          name: `${metric} % of population`,
-          data: states.map(mapper),
+    if (!chart) {
+      let myChart = Highcharts.chart(chartContainer.current, {
+        chart: { type: 'bar' },
+        title: { text: `most ${metric} by state` },
+        xAxis: { categories: states.map((d) => d.state) },
+        yAxis: { title: 'death % of population' },
+        series: [
+          {
+            name: `${metric} % of population`,
+            data: states.map(mapper),
+          },
+        ],
+        plotOptions: {
+          series: {
+            showInNavigator: true,
+          },
         },
-      ],
-    });
+      });
+      setChart(myChart);
+    } else {
+      // debugger;
+      chart.axes[0].setCategories(states.map((d) => d.state));
+      chart.series[0].setData(states.map(mapper));
+    }
   }, [data, chartContainer.current, date, metric]);
 
-  return (
-    <div>
-      <h2>Chart</h2>
-
-      <div id="counts-chart" style={{ width: '500px', height: '950px' }} ref={chartContainer}></div>
-    </div>
-  );
+  return <div id="counts-chart" style={{ width: '500px', height: '950px' }} ref={chartContainer}></div>;
 }
 
 // export default memo(BarChart, () => true);
