@@ -59,6 +59,7 @@ function BarChart({ data, date, metric }) {
     let stats = data.filter((d) => d.state && weekOfCompare(selectedDay, d.date));
     let states = stats
       .reduce((memo, d) => {
+        // NOTE: the key is what defines the aggregate
         let key = `${d.state}:${moment(d.date).startOf('month').format('YYYY-MM-DD')}`;
 
         let index = _.find(memo, { key });
